@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raven Movie Club</title>
+<meta name="description" content="Raven Movie Club: suggest a film, see what we're watching next, and join the discussion.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;700;800&family=Courier+Prime&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%230a0a0b'/%3E%3Cpolygon fill='%23ece6d9' points='63,27 53,20 46,17 40,18 33,22 20,31 2,42 5,46 1,49 18,43 30,44 41,40 48,33 53,29'/%3E%3Ccircle cx='47.5' cy='21' r='2.2' fill='%239d74ff'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --bg-2: #111113;
+    --panel: #161618;
+    --line: #2a2a2d;
+    --ink: #ece6d9;
+    --ink-2: #bdb6a8;
+    --muted: #7f7a71;
+    --accent: #9d74ff;          /* purple highlight (text, details) */
+    --accent-btn: #6b3fd4;      /* purple for buttons (darker so white text reads well) */
+    --accent-btn-hover: #5a32b8;
+    --accent-ink: #ffffff;
+    --gold: #c9a45c;
+    --ok: #8fbf8a;
+    --display: Futura, 'Futura PT', 'Jost', 'Century Gothic', sans-serif;
+    --body: 'Jost', Futura, 'Century Gothic', system-ui, sans-serif;
+    --mono: 'Courier Prime', 'Courier New', monospace;
+    --radius: 3px;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--body); font-size: 17px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  /* film grain */
+  body::after {
+    content: ''; position: fixed; inset: -50%; pointer-events: none; z-index: 50; opacity: .07;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation: grain 1.2s steps(6) infinite;
+  }
+  @keyframes grain { 0%{transform:translate(0,0)} 20%{transform:translate(-3%,2%)} 40%{transform:translate(2%,-3%)} 60%{transform:translate(-2%,-1%)} 80%{transform:translate(3%,3%)} 100%{transform:translate(0,0)} }
+  @media (prefers-reduced-motion: reduce) { body::after { animation: none; } }
+
+  a { color: inherit; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  @media (max-width: 600px) { .wrap { padding: 0 16px; } }
+
+  .kicker { font-family: var(--mono); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  h1, h2, h3 { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; line-height: 1.02; margin: 0; }
+
+  /* ---------- masthead ---------- */
+  header.top { border-bottom: 1px solid var(--line); position: relative; z-index: 2; background: var(--bg); }
+  header.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 68px; }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+  .raven { width: 40px; height: 40px; color: var(--ink); display: block; }
+  .brand-name { font-family: var(--display); font-weight: 500; font-size: 15px; letter-spacing: .28em; text-transform: uppercase; }
+  .brand-name b { color: var(--accent); font-weight: 700; }
+  nav.top a { font-family: var(--mono); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); text-decoration: none; margin-left: 22px; }
+  nav.top a:hover { color: var(--ink); }
+  @media (max-width: 720px) { nav.top { display: none; } .brand-name { font-size: 13px; letter-spacing: .2em; } }
+
+  /* ---------- hero ---------- */
+  /* cover art: shows only if cover.jpg has been uploaded next to index.html */
+  .cover { position: relative; z-index: 1; max-width: 1120px; margin: 0 auto; padding: 28px 24px 0; }
+  .cover:not([hidden]) + .wrap { padding-top: 48px; }
+  .cover[hidden] { display: none; }
+  .cover img { display: block; width: 100%; aspect-ratio: 5 / 1; object-fit: cover; object-position: center; border: 1px solid var(--line); }
+  @media (max-width: 600px) { .cover { padding: 16px 16px 0; } .cover img { aspect-ratio: 3 / 1; } }
+
+  .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); background: radial-gradient(120% 90% at 85% 0%, #1e1d1b 0%, var(--bg) 60%); }
+  .hero::before { /* venetian blind light */
+    content: ''; position: absolute; inset: -20% -10% -20% 30%; pointer-events: none;
+    background: repeating-linear-gradient(-24deg, rgba(236,230,217,.075) 0 26px, transparent 26px 62px);
+    -webkit-mask-image: radial-gradient(70% 70% at 70% 30%, #000 0%, transparent 75%);
+            mask-image: radial-gradient(70% 70% at 70% 30%, #000 0%, transparent 75%);
+  }
+  .hero .wrap { position: relative; display: grid; grid-template-columns: 300px 1fr; gap: 56px; padding-top: 64px; padding-bottom: 72px; align-items: start; }
+  @media (max-width: 820px) { .hero .wrap { grid-template-columns: 1fr; gap: 32px; padding-top: 40px; padding-bottom: 48px; } }
+
+  .poster { position: relative; aspect-ratio: 2/3; width: 100%; max-width: 300px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 30px 60px -20px rgba(0,0,0,.9), 0 0 0 1px rgba(0,0,0,.6); overflow: hidden; }
+  .poster img { width: 100%; height: 100%; object-fit: cover; display: block; filter: grayscale(1) contrast(1.1); transition: filter .6s ease; }
+  .poster:hover img { filter: none; }
+  .poster .ph { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; font-family: var(--display); text-transform: uppercase; letter-spacing: .08em; color: var(--ink-2); background: repeating-linear-gradient(-24deg, #19191b 0 18px, #141416 18px 36px); }
+  .poster .ph .q { font-size: 120px; font-weight: 800; line-height: 1; color: var(--ink); }
+  @media (max-width: 820px) { .hero .poster { max-width: 220px; } }
+
+  .now-label { display: inline-flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+  .now-label::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  .film-title { font-size: clamp(40px, 7vw, 84px); margin: 14px 0 10px; text-wrap: balance; }
+  .film-meta { font-family: var(--mono); color: var(--ink-2); font-size: 15px; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+  .film-overview { color: var(--ink-2); max-width: 60ch; margin: 18px 0 0; }
+  .suggested { margin-top: 18px; font-size: 15px; color: var(--muted); }
+  .suggested b { color: var(--ink); font-weight: 500; }
+
+  .ticket { margin-top: 30px; display: grid; grid-template-columns: repeat(3, auto); gap: 0; border: 1px solid var(--line); background: rgba(10,10,11,.7); width: fit-content; max-width: 100%; }
+  .ticket > div { padding: 12px 20px; border-right: 1px dashed var(--line); }
+  .ticket > div:last-child { border-right: 0; }
+  .ticket .k { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .ticket .v { font-family: var(--display); font-weight: 500; font-size: 18px; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+  @media (max-width: 560px) { .ticket { grid-template-columns: 1fr 1fr; width: 100%; } .ticket > div:nth-child(2) { border-right: 0; } .ticket > div:last-child { grid-column: 1 / -1; border-top: 1px dashed var(--line); } }
+
+  .countdown { margin-top: 26px; display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .countdown .unit { min-width: 74px; text-align: center; border: 1px solid var(--line); background: var(--bg-2); padding: 10px 8px 8px; }
+  .countdown .n { font-family: var(--display); font-size: 34px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+  .countdown .l { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
+  .countdown .cap { font-family: var(--mono); font-size: 13px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; width: 100%; }
+
+  .btn { display: inline-flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: .16em; text-transform: uppercase; text-decoration: none; padding: 14px 22px; border: 1px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer; border-radius: var(--radius); transition: background .2s, color .2s; }
+  .btn:hover { background: var(--ink); color: var(--bg); }
+  .btn.primary { background: var(--accent-btn); border-color: var(--accent-btn); color: var(--accent-ink); }
+  .btn.primary:hover { background: var(--accent-btn-hover); border-color: var(--accent-btn-hover); color: #fff; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-row { margin-top: 26px; display: flex; gap: 12px; flex-wrap: wrap; }
+
+  /* ---------- sections ---------- */
+  section.block { padding: 72px 0; border-bottom: 1px solid var(--line); }
+  @media (max-width: 600px) { section.block { padding: 52px 0; } }
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 32px; }
+  .sec-head h2 { font-size: clamp(28px, 4.5vw, 44px); }
+  .sec-head h2 .num { font-family: var(--mono); font-weight: 400; font-size: 14px; color: var(--accent); letter-spacing: .1em; vertical-align: top; margin-right: 12px; }
+
+  /* suggest form */
+  .suggest { display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 760px) { .suggest { grid-template-columns: 1fr; } }
+  label.field { display: block; }
+  label.field > span { display: block; font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  select, input[type=search] {
+    width: 100%; font: inherit; font-size: 18px; color: var(--ink); background: var(--bg-2);
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; outline: none; appearance: none; -webkit-appearance: none;
+  }
+  select { background-image: linear-gradient(45deg, transparent 50%, var(--ink-2) 50%), linear-gradient(-45deg, transparent 50%, var(--ink-2) 50%); background-position: calc(100% - 22px) 50%, calc(100% - 16px) 50%; background-size: 6px 6px; background-repeat: no-repeat; padding-right: 44px; }
+  select:focus, input[type=search]:focus { border-color: var(--ink-2); }
+  .search-box { position: relative; }
+  .results { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20; background: #121214; border: 1px solid var(--line); max-height: 420px; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,.6); }
+  .results[hidden] { display: none; }
+  .result { display: grid; grid-template-columns: 46px 1fr; gap: 14px; align-items: center; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #1d1d20; }
+  .result:last-child { border-bottom: 0; }
+  .result:hover, .result.active { background: #1c1c1f; }
+  .thumb { width: 46px; aspect-ratio: 2/3; background: #1d1d20 center/cover no-repeat; border: 1px solid #26262a; }
+  .result .t { font-weight: 500; }
+  .result .y { color: var(--accent); font-family: var(--mono); margin-left: 6px; }
+  .result .o { font-size: 13px; color: var(--muted); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .result.empty { grid-template-columns: 1fr; color: var(--muted); cursor: default; }
+
+  .chosen { margin-top: 16px; display: grid; grid-template-columns: 70px 1fr auto; gap: 16px; align-items: center; padding: 14px; border: 1px solid var(--line); background: var(--bg-2); }
+  .chosen .thumb { width: 70px; }
+  .chosen .t { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: .03em; font-size: 20px; line-height: 1.1; }
+  .chosen .y { font-family: var(--mono); color: var(--accent); }
+  .chosen .x { background: none; border: 0; color: var(--muted); font-size: 26px; cursor: pointer; padding: 4px 8px; }
+  .chosen .x:hover { color: var(--ink); }
+  .form-foot { margin-top: 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .msg { font-family: var(--mono); font-size: 15px; }
+  .msg.ok { color: var(--ok); } .msg.bad { color: #ff8a8a; } .msg.info { color: var(--gold); }
+  .hint { font-size: 14px; color: var(--muted); margin-top: 10px; }
+
+  /* the pot */
+  .round { border: 1px solid var(--line); background: var(--bg-2); padding: 16px 20px; margin-bottom: 32px; display: flex; gap: 10px 22px; flex-wrap: wrap; align-items: baseline; }
+  .round .r { font-family: var(--display); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+  .round .who { color: var(--ink-2); }
+  .round .who span { display: inline-block; border: 1px solid var(--line); padding: 1px 10px; margin: 3px 4px 3px 0; border-radius: 999px; font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 28px 20px; }
+  @media (max-width: 480px) { .grid { grid-template-columns: repeat(2, 1fr); gap: 22px 14px; } }
+  .card .poster { max-width: none; box-shadow: 0 12px 24px -12px rgba(0,0,0,.9); }
+  .card .poster .ph { font-size: 14px; }
+  .card h3 { font-size: 15px; letter-spacing: .03em; margin-top: 12px; line-height: 1.2; }
+  .card .sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .card .sub .y { font-family: var(--mono); color: var(--ink-2); }
+  .badge { position: absolute; top: 8px; left: 8px; font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; background: rgba(10,10,11,.85); color: var(--gold); border: 1px solid rgba(201,164,92,.5); padding: 3px 7px; }
+  .empty-note { color: var(--muted); font-family: var(--mono); }
+
+  /* past */
+  .past { list-style: none; margin: 0; padding: 0; }
+  .past li { display: grid; grid-template-columns: 130px 1fr auto; gap: 18px; align-items: baseline; padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .past li:first-child { border-top: 1px solid var(--line); }
+  .past .d { font-family: var(--mono); color: var(--muted); font-size: 14px; }
+  .past .t { font-family: var(--display); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; font-size: 20px; }
+  .past .t a { text-decoration: none; } .past .t a:hover { color: var(--accent); }
+  .past .t .y { font-family: var(--mono); font-size: 14px; color: var(--ink-2); margin-left: 8px; }
+  .past .by { color: var(--muted); font-size: 14px; text-align: right; }
+  @media (max-width: 600px) { .past li { grid-template-columns: 1fr; gap: 2px; } .past .by { text-align: left; } }
+
+  /* how it works */
+  .how { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .how > div { background: var(--bg); padding: 26px 24px; }
+  .how .n { font-family: var(--mono); color: var(--accent); font-size: 13px; letter-spacing: .14em; }
+  .how h3 { font-size: 18px; margin: 10px 0 8px; letter-spacing: .06em; }
+  .how p { margin: 0; color: var(--ink-2); font-size: 15px; }
+  @media (max-width: 960px) { .how { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .how { grid-template-columns: 1fr; } }
+
+  footer { padding: 40px 0 60px; color: var(--muted); font-size: 13px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  footer p { margin: 0 0 6px; max-width: 70ch; }
+  .demo-flag { position: fixed; bottom: 14px; right: 14px; z-index: 60; font-family: var(--mono); font-size: 12px; background: var(--gold); color: #1a1406; padding: 6px 10px; letter-spacing: .08em; text-transform: uppercase; }
+  .loading { opacity: .5; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#">
+      <svg class="raven" viewBox="0 0 64 64" aria-hidden="true"><g fill="currentColor"><polygon points="63,27 53,20 46,17 40,18 33,22 20,31 2,42 5,46 1,49 18,43 30,44 41,40 48,33 53,29"/><path d="M29 43 L28 55 M34 42 L35 55" stroke="currentColor" stroke-width="1.6"/><rect x="22" y="55" width="8" height="1.4"/><rect x="31" y="55" width="8" height="1.4"/></g><circle cx="47.5" cy="21" r="1.6" fill="var(--accent)"/></svg>
+      <span class="brand-name" id="brandName"><b>R</b>aven <b>M</b>ovie <b>C</b>lub</span>
+    </a>
+    <nav class="top">
+      <a href="#suggest">Suggest</a>
+      <a href="#pot">The pot</a>
+      <a href="#past">Previously</a>
+      <a href="#how">How it works</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero" id="hero" aria-live="polite">
+    <div class="cover" id="cover" hidden>
+    <img src="cover.jpg" alt="" onload="this.parentNode.hidden=false" onerror="this.parentNode.remove()">
+    </div>
+    <div class="wrap">
+      <div class="poster" id="heroPoster"><div class="ph"><div><div class="q">?</div></div></div></div>
+      <div>
+        <div class="now-label" id="heroLabel">Loading…</div>
+        <h1 class="film-title" id="heroTitle">&nbsp;</h1>
+        <div class="film-meta" id="heroMeta"></div>
+        <p class="film-overview" id="heroOverview"></p>
+        <div class="suggested" id="heroBy"></div>
+        <div class="ticket" id="ticket"></div>
+        <div class="countdown" id="countdown"></div>
+        <div class="btn-row" id="heroButtons"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="suggest">
+    <div class="wrap">
+      <div class="sec-head"><h2><span class="num">01</span>Suggest a film</h2><span class="kicker">Suggest as many as you like</span></div>
+      <form class="suggest" id="suggestForm" autocomplete="off">
+        <label class="field">
+          <span>Who are you?</span>
+          <select id="member" required><option value="">Choose your name</option></select>
+        </label>
+        <div>
+          <label class="field search-box">
+            <span>Find a film</span>
+            <input type="search" id="q" placeholder="Start typing… e.g. Crash" aria-autocomplete="list" aria-controls="results">
+            <div class="results" id="results" role="listbox" hidden></div>
+          </label>
+          <div id="chosen"></div>
+          <div class="form-foot">
+            <button class="btn primary" id="submitBtn" type="submit" disabled>Add to the pot</button>
+            <span class="msg" id="msg" role="status"></span>
+          </div>
+          <p class="hint">Not on the list? Ask Xanthe to add your name. Tip: add the year to narrow it down, e.g. “Crash 1996”.</p>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="block" id="pot">
+    <div class="wrap">
+      <div class="sec-head"><h2><span class="num">02</span>In the pot</h2><span class="kicker" id="potCount"></span></div>
+      <div class="round" id="round"></div>
+      <div class="grid" id="potGrid"></div>
+    </div>
+  </section>
+
+  <section class="block" id="past">
+    <div class="wrap">
+      <div class="sec-head"><h2><span class="num">03</span>Previously watched</h2></div>
+      <ul class="past" id="pastList"></ul>
+    </div>
+  </section>
+
+  <section class="block" id="how">
+    <div class="wrap">
+      <div class="sec-head"><h2><span class="num">04</span>How it works</h2></div>
+      <div class="how">
+        <div><div class="n">I.</div><h3>Suggest</h3><p>Search for a film and add it to the pot. You can suggest as many as you like.</p></div>
+        <div><div class="n">II.</div><h3>Fair picks</h3><p>Films are picked in rounds. Everyone with a film in the pot gets one pick per round, in random order. Suggesting more films doesn't give you more turns.</p></div>
+        <div><div class="n">III.</div><h3>Content check</h3><p>Every film is checked against content notes our members have asked us to avoid. If a film is flagged, it stays out of the pot.</p></div>
+        <div><div class="n">IV.</div><h3>Watch, then talk</h3><p>Watch the film in your own time, wherever you like. Then we meet every other Friday lunchtime to discuss it.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <p>This product uses the TMDB API but is not endorsed or certified by TMDB. Film data and posters from <a href="https://www.themoviedb.org" target="_blank" rel="noopener">The Movie Database</a>.</p>
+      <p>Content checks powered by <a href="https://www.doesthedogdie.com" target="_blank" rel="noopener">DoesTheDogDie.com</a>.</p>
+    </div>
+    <p id="footName">Raven Movie Club</p>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const TZ = 'Europe/London';
+  // Your Apps Script web app URL. Change this only if you make a *new* deployment.
+  // Set it to '' to preview the page with made-up demo data.
+  const API_URL = 'https://script.google.com/macros/s/AKfycbyTt1FhaIBjLVxrRtMRCJA3k-eOSexeu7fhHAj-nDdFcypHZGv9ktKQdwEH6iItZFbm/exec';
+  const DEMO = !API_URL;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+                  set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+  let state = null, chosen = null, searchTimer = null, searchSeq = 0, tick = null;
+
+  /* ---------------- data ---------------- */
+  async function api(params) {
+    if (DEMO) return demoApi(params);
+    const url = API_URL + '?' + new URLSearchParams(params);
+    const res = await fetch(url);
+    return res.json();
+  }
+  async function post(body) {
+    if (DEMO) return demoSubmit(body);
+    const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(body) }); // text/plain: no CORS preflight
+    return res.json();
+  }
+
+  async function load() {
+    try {
+      state = await api({ action: 'state' });
+      if (state.error) throw new Error(state.error);
+      render();
+    } catch (e) {
+      $('heroLabel').textContent = 'Projector trouble';
+      $('heroTitle').textContent = 'Couldn’t load';
+      $('heroOverview').textContent = 'Try refreshing in a minute. (' + e.message + ')';
+    }
+  }
+
+  /* ---------------- rendering ---------------- */
+  const fmt = (iso, opts) => new Intl.DateTimeFormat('en-GB', { timeZone: TZ, ...opts }).format(new Date(iso));
+  const meetingDay = iso => fmt(iso, { weekday: 'short', day: 'numeric', month: 'short' });
+  const meetingTime = iso => fmt(iso, { hour: '2-digit', minute: '2-digit' });
+  const keyToISO = key => key + 'T12:00:00Z';
+  const imdb = id => id ? `https://www.imdb.com/title/${encodeURIComponent(id)}/` : null;
+
+  function posterHTML(src, title, badge) {
+    const b = badge ? `<span class="badge">${esc(badge)}</span>` : '';
+    return src
+      ? `<img src="${esc(src)}" alt="Poster for ${esc(title)}" loading="lazy">${b}`
+      : `<div class="ph"><div>${esc(title)}</div></div>${b}`;
+  }
+
+  function render() {
+    const c = state.club || {};
+    document.title = c.name || 'Raven Movie Club';
+    $('footName').textContent = (c.name || 'Raven Movie Club') + (c.tagline ? ' · ' + c.tagline : '');
+    renderBrand(c.name);
+    renderHero();
+    renderMembers();
+    renderPot();
+    renderPast();
+  }
+
+  function renderBrand(name) {
+    if (!name) return;
+    // Highlight each word's first letter, e.g. R-aven M-ovie C-lub
+    $('brandName').innerHTML = name.split(/\s+/).map(w => `<b>${esc(w[0])}</b>${esc(w.slice(1))}`).join(' ');
+  }
+
+  function renderHero() {
+    const cur = state.current, m = state.meeting, c = state.club || {};
+    const where = c.location || 'TBC';
+    $('ticket').innerHTML = `
+      <div><div class="k">Discussion</div><div class="v">${esc(meetingDay(m.date))}</div></div>
+      <div><div class="k">Time</div><div class="v">${esc(meetingTime(m.date))}</div></div>
+      <div><div class="k">Where</div><div class="v">${esc(where)}</div></div>`;
+
+    if (cur) {
+      $('heroPoster').innerHTML = posterHTML(cur.poster, cur.title);
+      $('heroLabel').textContent = 'Now watching';
+      $('heroTitle').textContent = cur.title;
+      $('heroMeta').innerHTML = [cur.year, cur.runtime ? cur.runtime + ' mins' : '', 'Round ' + (cur.round || 1)]
+        .filter(Boolean).map(x => `<span>${esc(x)}</span>`).join('');
+      $('heroOverview').textContent = cur.overview || '';
+      $('heroBy').innerHTML = `Suggested by <b>${esc(cur.member)}</b>`;
+      $('heroButtons').innerHTML = cur.imdbId ? `<a class="btn" href="${imdb(cur.imdbId)}" target="_blank" rel="noopener">View on IMDb ↗</a>` : '';
+      startCountdown(m.date, 'Watch it before the discussion in');
+    } else {
+      $('heroPoster').innerHTML = `<div class="ph"><div><div class="q">?</div><div style="margin-top:10px">Sealed</div></div></div>`;
+      const revealed = new Date(m.revealAt) <= new Date();
+      $('heroLabel').textContent = 'Next watch';
+      $('heroTitle').textContent = revealed ? 'Pot\'s empty' : 'To be revealed';
+      $('heroMeta').innerHTML = '';
+      $('heroOverview').textContent = revealed
+        ? 'The pot is empty, so there\'s nothing to pick yet. Suggest a film below.'
+        : `The film is picked automatically on ${fmt(m.revealAt, { weekday: 'long', day: 'numeric', month: 'long' })} at ${meetingTime(m.revealAt)}. Watch it in your own time, then come and talk about it.`;
+      $('heroBy').innerHTML = '';
+      $('heroButtons').innerHTML = `<a class="btn primary" href="#suggest">Suggest a film</a>`;
+      if (revealed) $('countdown').innerHTML = ''; else startCountdown(m.revealAt, 'Film revealed in');
+    }
+  }
+
+  function startCountdown(targetISO, caption) {
+    clearInterval(tick);
+    const target = new Date(targetISO).getTime();
+    const draw = () => {
+      let s = Math.max(0, Math.floor((target - Date.now()) / 1000));
+      if (s === 0) { clearInterval(tick); setTimeout(load, 4000); }
+      const d = Math.floor(s / 86400); s %= 86400;
+      const h = Math.floor(s / 3600); s %= 3600;
+      const mi = Math.floor(s / 60);
+      const u = (n, l) => `<div class="unit"><div class="n">${String(n).padStart(2, '0')}</div><div class="l">${l}</div></div>`;
+      $('countdown').innerHTML = `<div class="cap">${esc(caption)}</div>${u(d, 'Days')}${u(h, 'Hrs')}${u(mi, 'Mins')}`;
+    };
+    draw(); tick = setInterval(draw, 30000);
+  }
+
+  function renderMembers() {
+    const sel = $('member'), saved = store.get('rfc-member');
+    const keep = sel.value || saved || '';
+    sel.innerHTML = '<option value="">Choose your name</option>' +
+      (state.members || []).map(n => `<option${n === keep ? ' selected' : ''}>${esc(n)}</option>`).join('');
+    updateSubmit();
+  }
+
+  function renderPot() {
+    const pool = state.pool || [];
+    $('potCount').textContent = pool.length ? `${pool.length} film${pool.length === 1 ? '' : 's'} waiting` : '';
+    const r = state.round || {};
+    $('round').innerHTML = (r.stillToGo && r.stillToGo.length)
+      ? `<span class="r">Round ${esc(r.number)}</span><span class="who">Still to have a turn: ${r.stillToGo.map(n => `<span>${esc(n)}</span>`).join('')}</span>`
+      : `<span class="r">Round ${esc(r.number || 1)}</span><span class="who">Waiting for suggestions.</span>`;
+    $('potGrid').innerHTML = pool.length
+      ? pool.map(f => `
+        <div class="card">
+          <div class="poster">${posterHTML(f.poster, f.title, f.pending ? 'Awaiting check' : '')}</div>
+          <h3>${f.imdbId ? `<a href="${imdb(f.imdbId)}" target="_blank" rel="noopener" style="text-decoration:none">${esc(f.title)}</a>` : esc(f.title)}</h3>
+          <div class="sub"><span class="y">${esc(f.year)}</span> · ${esc(f.member)}</div>
+        </div>`).join('')
+      : `<p class="empty-note">The pot is empty. Be the first to suggest a film.</p>`;
+  }
+
+  function renderPast() {
+    const past = state.past || [];
+    $('pastList').innerHTML = past.length
+      ? past.map(p => `<li>
+          <span class="d">${esc(meetingDay(keyToISO(p.meeting)))}</span>
+          <span class="t">${p.imdbId ? `<a href="${imdb(p.imdbId)}" target="_blank" rel="noopener">${esc(p.title)}</a>` : esc(p.title)}<span class="y">${esc(p.year)}</span></span>
+          <span class="by">Suggested by ${esc(p.member)}</span></li>`).join('')
+      : `<li style="display:block"><span class="empty-note">Nothing watched yet. Our first film is coming up.</span></li>`;
+  }
+
+  /* ---------------- search + submit ---------------- */
+  const q = $('q'), results = $('results');
+
+  q.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    const term = q.value.trim();
+    if (term.length < 2) { results.hidden = true; return; }
+    searchTimer = setTimeout(() => search(term), 300);
+  });
+  q.addEventListener('keydown', e => {
+    const items = [...results.querySelectorAll('.result[data-i]')];
+    if (results.hidden || !items.length) return;
+    let i = items.findIndex(x => x.classList.contains('active'));
+    if (e.key === 'ArrowDown') { e.preventDefault(); i = Math.min(items.length - 1, i + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); i = Math.max(0, i - 1); }
+    else if (e.key === 'Enter' && i >= 0) { e.preventDefault(); items[i].click(); return; }
+    else if (e.key === 'Escape') { results.hidden = true; return; }
+    else return;
+    items.forEach(x => x.classList.remove('active')); items[i].classList.add('active'); items[i].scrollIntoView({ block: 'nearest' });
+  });
+  document.addEventListener('click', e => { if (!e.target.closest('.search-box')) results.hidden = true; });
+
+  async function search(term) {
+    const seq = ++searchSeq;
+    results.hidden = false;
+    results.innerHTML = `<div class="result empty">Searching…</div>`;
+    try {
+      const data = await api({ action: 'search', q: term });
+      if (seq !== searchSeq) return;
+      const list = data.results || [];
+      results.innerHTML = list.length
+        ? list.map((f, i) => `<div class="result" role="option" data-i="${i}">
+            <div class="thumb" style="${f.poster ? `background-image:url('${esc(f.poster)}')` : ''}"></div>
+            <div><div><span class="t">${esc(f.title)}</span><span class="y">${esc(f.year || '—')}</span></div><div class="o">${esc(f.overview)}</div></div>
+          </div>`).join('')
+        : `<div class="result empty">No films found. Check the spelling, or try adding the year.</div>`;
+      results.querySelectorAll('.result[data-i]').forEach(el => el.addEventListener('click', () => choose(list[+el.dataset.i])));
+    } catch {
+      results.innerHTML = `<div class="result empty">Search isn't working right now. Try again in a moment.</div>`;
+    }
+  }
+
+  function choose(f) {
+    chosen = f; results.hidden = true; q.value = '';
+    $('chosen').innerHTML = `<div class="chosen">
+      <div class="thumb" style="${f.poster ? `background-image:url('${esc(f.poster)}')` : ''}"></div>
+      <div><div class="t">${esc(f.title)}</div><div class="y">${esc(f.year || '')}</div></div>
+      <button type="button" class="x" aria-label="Remove">×</button></div>`;
+    $('chosen').querySelector('.x').onclick = () => { chosen = null; $('chosen').innerHTML = ''; updateSubmit(); q.focus(); };
+    setMsg('', '');
+    updateSubmit();
+  }
+
+  function updateSubmit() { $('submitBtn').disabled = !(chosen && $('member').value); }
+  $('member').addEventListener('change', () => { store.set('rfc-member', $('member').value); updateSubmit(); });
+  function setMsg(text, kind) { const m = $('msg'); m.textContent = text; m.className = 'msg ' + (kind || ''); }
+
+  $('suggestForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!chosen || !$('member').value) return;
+    const btn = $('submitBtn'); btn.disabled = true; btn.textContent = 'Checking…';
+    setMsg('Running the content check…', 'info');
+    try {
+      const r = await post({ action: 'submit', member: $('member').value, tmdbId: chosen.tmdbId });
+      setMsg(r.message, r.ok ? 'ok' : 'bad');
+      if (r.ok) { chosen = null; $('chosen').innerHTML = ''; load(); }
+    } catch {
+      setMsg('Couldn’t send that. Please try again.', 'bad');
+    } finally {
+      btn.textContent = 'Add to the pot'; updateSubmit();
+    }
+  });
+
+  /* ---------------- demo mode ---------------- */
+  function demoState() {
+    const now = Date.now();
+    return {
+      club: { name: 'Raven Movie Club', tagline: 'Watch in your own time. Talk about it every other Friday.', time: '12:30', location: 'TBC' },
+      members: ['Ali', 'Anita', 'Ben', 'Ellie', 'Heidi', 'Imran', 'Jamie', 'John', 'Kaltrina', 'Mel', 'Michelle', 'PJ', 'River', 'Sally', 'Sarah', 'Verity', 'Xanthe'],
+      meeting: { date: '2026-11-27T12:30:00Z', revealAt: '2026-11-20T12:30:00Z' },
+      current: new Date('2026-11-20T12:30:00Z').getTime() <= now ? {
+        meeting: '2026-11-27', title: 'The Third Man', year: '1949', runtime: 104, imdbId: 'tt0041959', member: 'John', round: 1, poster: '',
+        overview: 'In postwar Vienna, pulp novelist Holly Martins arrives to take a job with his old friend Harry Lime, only to find Harry has died. Or has he?'
+      } : null,
+      round: { number: 1, stillToGo: ['Ben', 'Ellie', 'Xanthe'] },
+      pool: [
+        { title: 'Double Indemnity', year: '1944', member: 'Xanthe', imdbId: 'tt0036775', poster: '' },
+        { title: 'Chinatown', year: '1974', member: 'Ben', imdbId: 'tt0071315', poster: '' },
+        { title: 'Paddington 2', year: '2017', member: 'Ellie', imdbId: 'tt4468740', poster: '' },
+        { title: 'Crash', year: '2004', member: 'Ben', imdbId: 'tt0375679', poster: '', pending: true },
+        { title: 'Brick', year: '2005', member: 'Xanthe', imdbId: 'tt0393109', poster: '' },
+      ],
+      past: [],
+    };
+  }
+  const demoFilms = [
+    { tmdbId: 1, title: 'Crash', year: '2004', overview: 'Los Angeles citizens with vastly separate lives collide in interweaving stories of race, loss and redemption.' },
+    { tmdbId: 2, title: 'Crash', year: '1996', overview: 'After a car accident, a film producer is drawn into a subculture obsessed with car crashes.' },
+    { tmdbId: 3, title: 'The Big Sleep', year: '1946', overview: 'Private detective Philip Marlowe is hired by a wealthy family.' },
+    { tmdbId: 4, title: 'Sunset Boulevard', year: '1950', overview: 'A screenwriter develops a dangerous relationship with a faded film star.' },
+    { tmdbId: 5, title: 'Paddington', year: '2014', overview: 'A young Peruvian bear travels to London in search of a home.' },
+  ];
+  let demo = null;
+  async function demoApi(p) {
+    await new Promise(r => setTimeout(r, 250));
+    if (p.action === 'search') {
+      const t = p.q.toLowerCase().replace(/\s*\d{4}$/, '');
+      return { results: demoFilms.filter(f => f.title.toLowerCase().includes(t)) };
+    }
+    return demo || (demo = demoState());
+  }
+  async function demoSubmit(b) {
+    await new Promise(r => setTimeout(r, 700));
+    const f = demoFilms.find(x => x.tmdbId === b.tmdbId);
+    if (f.year === '1996') return { ok: false, message: `Sorry — ${f.title} (${f.year}) can't go in the pot. It's flagged for content that a club member has asked us to avoid. Try another?` };
+    if (demo.pool.some(x => x.title === f.title && x.year === f.year)) return { ok: false, message: `Great minds — someone has already suggested ${f.title}.` };
+    demo.pool.push({ title: f.title, year: f.year, member: b.member, poster: '' });
+    return { ok: true, message: `${f.title} (${f.year}) is in the pot. Good luck! (demo)` };
+  }
+  if (DEMO) document.body.insertAdjacentHTML('beforeend', '<div class="demo-flag">Demo data · not connected</div>');
+
+  load();
+  setInterval(() => { if (!document.hidden) load(); }, 5 * 60 * 1000);
+})();
+</script>
+</body>
+</html>
