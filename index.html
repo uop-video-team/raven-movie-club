@@ -100,7 +100,7 @@
   .ticket > div { padding: 12px 20px; border-right: 1px dashed var(--line); }
   .ticket > div:last-child { border-right: 0; }
   .ticket .k { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-  .ticket .v { font-family: var(--display); font-weight: 500; font-size: 18px; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+  .ticket .v { font-family: var(--display); font-weight: 500; font-size: 18px; letter-spacing: .04em; text-transform: uppercase; }
   @media (max-width: 560px) { .ticket { grid-template-columns: 1fr 1fr; width: 100%; } .ticket > div:nth-child(2) { border-right: 0; } .ticket > div:last-child { grid-column: 1 / -1; border-top: 1px dashed var(--line); } }
 
   .countdown { margin-top: 26px; display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
@@ -128,12 +128,12 @@
   @media (max-width: 760px) { .suggest { grid-template-columns: 1fr; } }
   label.field { display: block; }
   label.field > span { display: block; font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
-  select, input[type=search] {
+  select, input[type=search], input[type=url] {
     width: 100%; font: inherit; font-size: 18px; color: var(--ink); background: var(--bg-2);
     border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; outline: none; appearance: none; -webkit-appearance: none;
   }
   select { background-image: linear-gradient(45deg, transparent 50%, var(--ink-2) 50%), linear-gradient(-45deg, transparent 50%, var(--ink-2) 50%); background-position: calc(100% - 22px) 50%, calc(100% - 16px) 50%; background-size: 6px 6px; background-repeat: no-repeat; padding-right: 44px; }
-  select:focus, input[type=search]:focus { border-color: var(--ink-2); }
+  select:focus, input[type=search]:focus, input[type=url]:focus { border-color: var(--ink-2); }
   .search-box { position: relative; }
   .results { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20; background: #121214; border: 1px solid var(--line); max-height: 420px; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,.6); }
   .results[hidden] { display: none; }
@@ -152,6 +152,10 @@
   .chosen .y { font-family: var(--mono); color: var(--accent); }
   .chosen .x { background: none; border: 0; color: var(--muted); font-size: 26px; cursor: pointer; padding: 4px 8px; }
   .chosen .x:hover { color: var(--ink); }
+  .where { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .where[hidden], .where .link[hidden] { display: none; }
+  @media (max-width: 600px) { .where { grid-template-columns: 1fr; } }
+  .svc { display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); border: 1px solid rgba(157,116,255,.45); padding: 1px 6px; margin-top: 6px; }
   .form-foot { margin-top: 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
   .msg { font-family: var(--mono); font-size: 15px; }
   .msg.ok { color: var(--ok); } .msg.bad { color: #ff8a8a; } .msg.info { color: var(--gold); }
@@ -248,15 +252,25 @@
         <div>
           <label class="field search-box">
             <span>Find a film</span>
-            <input type="search" id="q" placeholder="Start typing… e.g. Crash" aria-autocomplete="list" aria-controls="results">
+            <input type="search" id="q" placeholder="Start typing… e.g. Godzilla" aria-autocomplete="list" aria-controls="results">
             <div class="results" id="results" role="listbox" hidden></div>
           </label>
           <div id="chosen"></div>
+          <div class="where" id="where" hidden>
+            <label class="field">
+              <span>Where can we watch it?</span>
+              <select id="service"><option value="">Choose a service</option></select>
+            </label>
+            <label class="field link" id="linkField" hidden>
+              <span id="linkLabel">Paste the link</span>
+              <input type="url" id="link" placeholder="https://…" inputmode="url">
+            </label>
+          </div>
           <div class="form-foot">
             <button class="btn primary" id="submitBtn" type="submit" disabled>Add to the pot</button>
             <span class="msg" id="msg" role="status"></span>
           </div>
-          <p class="hint">Not on the list? Ask Xanthe to add your name. Tip: add the year to narrow it down, e.g. “Crash 1996”.</p>
+          <p class="hint">Not on the list? Ask Xanthe to add your name. Tip: add the year to narrow it down, e.g. “Godzilla 1954”. Please suggest films that are easy to find on the services listed.</p>
         </div>
       </form>
     </div>
@@ -382,11 +396,13 @@
       $('heroPoster').innerHTML = posterHTML(cur.poster, cur.title);
       $('heroLabel').textContent = 'Now watching';
       $('heroTitle').textContent = cur.title;
-      $('heroMeta').innerHTML = [cur.year, cur.runtime ? cur.runtime + ' mins' : '', 'Round ' + (cur.round || 1)]
+      $('heroMeta').innerHTML = [cur.year, cur.runtime ? cur.runtime + ' mins' : '', cur.service ? 'On ' + cur.service : '', 'Round ' + (cur.round || 1)]
         .filter(Boolean).map(x => `<span>${esc(x)}</span>`).join('');
       $('heroOverview').textContent = cur.overview || '';
       $('heroBy').innerHTML = `Suggested by <b>${esc(cur.member)}</b>`;
-      $('heroButtons').innerHTML = cur.imdbId ? `<a class="btn" href="${imdb(cur.imdbId)}" target="_blank" rel="noopener">View on IMDb ↗</a>` : '';
+      $('heroButtons').innerHTML =
+        (safeLink(cur.link) ? `<a class="btn primary" href="${esc(cur.link)}" target="_blank" rel="noopener">Watch on ${esc(cur.service)} ↗</a>` : '') +
+        (cur.imdbId ? `<a class="btn" href="${imdb(cur.imdbId)}" target="_blank" rel="noopener">View on IMDb ↗</a>` : '');
       startCountdown(m.date, 'Watch it before the discussion in');
     } else {
       $('heroPoster').innerHTML = `<div class="ph"><div><div class="q">?</div><div style="margin-top:10px">Sealed</div></div></div>`;
@@ -439,6 +455,7 @@
           <div class="poster">${posterHTML(f.poster, f.title, f.pending ? 'Awaiting check' : '')}</div>
           <h3>${f.imdbId ? `<a href="${imdb(f.imdbId)}" target="_blank" rel="noopener" style="text-decoration:none">${esc(f.title)}</a>` : esc(f.title)}</h3>
           <div class="sub"><span class="y">${esc(f.year)}</span> · ${esc(f.member)}</div>
+          ${f.service ? `<span class="svc">${esc(f.service)}</span>` : ''}
         </div>`).join('')
       : `<p class="empty-note">The pot is empty. Be the first to suggest a film.</p>`;
   }
@@ -501,24 +518,50 @@
       <div class="thumb" style="${f.poster ? `background-image:url('${esc(f.poster)}')` : ''}"></div>
       <div><div class="t">${esc(f.title)}</div><div class="y">${esc(f.year || '')}</div></div>
       <button type="button" class="x" aria-label="Remove">×</button></div>`;
-    $('chosen').querySelector('.x').onclick = () => { chosen = null; $('chosen').innerHTML = ''; updateSubmit(); q.focus(); };
+    $('chosen').querySelector('.x').onclick = () => { resetForm(); q.focus(); };
+    $('where').hidden = false;
     setMsg('', '');
     updateSubmit();
   }
 
-  function updateSubmit() { $('submitBtn').disabled = !(chosen && $('member').value); }
+  /* where to watch */
+  const SERVICES = ['Netflix', 'Disney+', 'Kanopy', 'ITVx', 'YouTube', 'Archive.org'];
+  const LINK_RULES = { 'YouTube': /^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//i, 'Archive.org': /^https:\/\/(www\.)?archive\.org\//i };
+  const safeLink = u => /^https:\/\//i.test(String(u || ''));
+  $('service').innerHTML += SERVICES.map(x => `<option>${esc(x)}</option>`).join('');
+  $('service').addEventListener('change', () => {
+    const svc = $('service').value, needsLink = !!LINK_RULES[svc];
+    $('linkField').hidden = !needsLink;
+    $('linkLabel').textContent = needsLink ? `Paste the ${svc} link` : 'Paste the link';
+    if (!needsLink) $('link').value = '';
+    updateSubmit();
+  });
+  $('link').addEventListener('input', updateSubmit);
+  function linkOk() {
+    const rule = LINK_RULES[$('service').value];
+    return !rule || rule.test($('link').value.trim());
+  }
+  function resetForm() {
+    chosen = null; $('chosen').innerHTML = ''; $('where').hidden = true;
+    $('service').value = ''; $('link').value = ''; $('linkField').hidden = true;
+    updateSubmit();
+  }
+
+  function updateSubmit() { $('submitBtn').disabled = !(chosen && $('member').value && $('service').value && linkOk()); }
   $('member').addEventListener('change', () => { store.set('rfc-member', $('member').value); updateSubmit(); });
   function setMsg(text, kind) { const m = $('msg'); m.textContent = text; m.className = 'msg ' + (kind || ''); }
 
   $('suggestForm').addEventListener('submit', async e => {
     e.preventDefault();
-    if (!chosen || !$('member').value) return;
+    if (!chosen || !$('member').value || !$('service').value) return;
+    if (!linkOk()) { setMsg(`That doesn't look like a ${$('service').value} link. It should start with https://`, 'bad'); return; }
     const btn = $('submitBtn'); btn.disabled = true; btn.textContent = 'Checking…';
     setMsg('Running the content check…', 'info');
     try {
-      const r = await post({ action: 'submit', member: $('member').value, tmdbId: chosen.tmdbId });
+      const r = await post({ action: 'submit', member: $('member').value, tmdbId: chosen.tmdbId,
+                             service: $('service').value, link: $('link').value.trim() });
       setMsg(r.message, r.ok ? 'ok' : 'bad');
-      if (r.ok) { chosen = null; $('chosen').innerHTML = ''; load(); }
+      if (r.ok) { resetForm(); load(); }
     } catch {
       setMsg('Couldn’t send that. Please try again.', 'bad');
     } finally {
@@ -530,11 +573,11 @@
   function demoState() {
     const now = Date.now();
     return {
-      club: { name: 'Raven Movie Club', tagline: 'Watch in your own time. Talk about it every other Friday.', time: '12:30', location: 'TBC' },
+      club: { name: 'Raven Movie Club', tagline: 'Watch in your own time. Talk about it every other Friday.', time: '12:00', location: '2.12, Mercantile House' },
       members: ['Ali', 'Anita', 'Ben', 'Ellie', 'Heidi', 'Imran', 'Jamie', 'John', 'Kaltrina', 'Mel', 'Michelle', 'PJ', 'River', 'Sally', 'Sarah', 'Verity', 'Xanthe'],
-      meeting: { date: '2026-11-27T12:30:00Z', revealAt: '2026-11-20T12:30:00Z' },
-      current: new Date('2026-11-20T12:30:00Z').getTime() <= now ? {
-        meeting: '2026-11-27', title: 'The Third Man', year: '1949', runtime: 104, imdbId: 'tt0041959', member: 'John', round: 1, poster: '',
+      meeting: { date: '2026-11-27T12:00:00Z', revealAt: '2026-11-20T12:00:00Z' },
+      current: new Date('2026-11-20T12:00:00Z').getTime() <= now ? {
+        meeting: '2026-11-27', title: 'The Third Man', year: '1949', runtime: 104, imdbId: 'tt0041959', member: 'John', round: 1, poster: '', service: 'Archive.org', link: 'https://archive.org/',
         overview: 'In postwar Vienna, pulp novelist Holly Martins arrives to take a job with his old friend Harry Lime, only to find Harry has died. Or has he?'
       } : null,
       round: { number: 1, stillToGo: ['Ben', 'Ellie', 'Xanthe'] },
@@ -542,15 +585,16 @@
         { title: 'Double Indemnity', year: '1944', member: 'Xanthe', imdbId: 'tt0036775', poster: '' },
         { title: 'Chinatown', year: '1974', member: 'Ben', imdbId: 'tt0071315', poster: '' },
         { title: 'Paddington 2', year: '2017', member: 'Ellie', imdbId: 'tt4468740', poster: '' },
-        { title: 'Crash', year: '2004', member: 'Ben', imdbId: 'tt0375679', poster: '', pending: true },
+        { title: 'Godzilla', year: '1954', member: 'Ben', imdbId: 'tt0047034', poster: '', service: 'Kanopy', pending: true },
         { title: 'Brick', year: '2005', member: 'Xanthe', imdbId: 'tt0393109', poster: '' },
       ],
       past: [],
     };
   }
   const demoFilms = [
-    { tmdbId: 1, title: 'Crash', year: '2004', overview: 'Los Angeles citizens with vastly separate lives collide in interweaving stories of race, loss and redemption.' },
-    { tmdbId: 2, title: 'Crash', year: '1996', overview: 'After a car accident, a film producer is drawn into a subculture obsessed with car crashes.' },
+    { tmdbId: 1, title: 'Godzilla', year: '1954', overview: 'Atomic testing awakens an ancient creature that rises from the sea to attack Tokyo.' },
+    { tmdbId: 2, title: 'Godzilla', year: '2014', overview: 'The world\'s most famous monster is pitted against malevolent creatures threatening humanity.' },
+    { tmdbId: 6, title: 'Godzilla Minus One', year: '2023', overview: 'Post-war Japan is at its lowest point when a new crisis emerges in the form of a giant monster.' },
     { tmdbId: 3, title: 'The Big Sleep', year: '1946', overview: 'Private detective Philip Marlowe is hired by a wealthy family.' },
     { tmdbId: 4, title: 'Sunset Boulevard', year: '1950', overview: 'A screenwriter develops a dangerous relationship with a faded film star.' },
     { tmdbId: 5, title: 'Paddington', year: '2014', overview: 'A young Peruvian bear travels to London in search of a home.' },
@@ -567,9 +611,8 @@
   async function demoSubmit(b) {
     await new Promise(r => setTimeout(r, 700));
     const f = demoFilms.find(x => x.tmdbId === b.tmdbId);
-    if (f.year === '1996') return { ok: false, message: `Sorry — ${f.title} (${f.year}) can't go in the pot. It's flagged for content that a club member has asked us to avoid. Try another?` };
     if (demo.pool.some(x => x.title === f.title && x.year === f.year)) return { ok: false, message: `Great minds — someone has already suggested ${f.title}.` };
-    demo.pool.push({ title: f.title, year: f.year, member: b.member, poster: '' });
+    demo.pool.push({ title: f.title, year: f.year, member: b.member, poster: '', service: b.service });
     return { ok: true, message: `${f.title} (${f.year}) is in the pot. Good luck! (demo)` };
   }
   if (DEMO) document.body.insertAdjacentHTML('beforeend', '<div class="demo-flag">Demo data · not connected</div>');
